@@ -1,0 +1,44 @@
+services:
+  mongo:
+    image: mongo
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: verysecurepassword
+      MONGO_INITDB_DATABASE: orbital
+  localstack:
+    image: localstack/localstack:latest
+    environment:
+      - DEBUG=1
+      - PROVIDER_OVERRIDE_EVENTS=v2
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+  infra:
+    depends_on:
+      - localstack
+      - mongo
+    build: infra
+    ports:
+      - 127.0.0.1:8080:8080
+    entrypoint: 
+      - sh 
+      - -c
+      - |
+        rm -rf /tmp/cdk && \
+        ./wait-for-localstack.sh && \
+        echo "Deploying infrastructure to localstack, be patient..." && \
+        cdklocal bootstrap --output /tmp/cdk && \
+        cdklocal deploy --require-approval never --output /tmp/cdk && \
+        cp /services/haproxy.cfg.template /service/haproxy.cfg && \
+        sed -i "s/<endpoint_id>/$(aws apigateway get-rest-apis | jq -r '.items[0].id')/" '/service/haproxy.cfg' && \
+        echo "Running in a few seconds!" && \
+        echo "                         Service endpoints: http://127.0.0.1:8080" && \
+        echo "                         HAproxy stats page: http://127.0.0.1:8080/stats" && \
+        haproxy -f /service/haproxy.cfg
+    environment:
+      - AWS_ENDPOINT_URL=http://localstack:4566 
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_DEFAULT_REGION=us-east-1
+    volumes:
+      - ./services:/services:rw

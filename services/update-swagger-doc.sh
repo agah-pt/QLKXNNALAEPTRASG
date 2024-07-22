@@ -1,0 +1,1 @@
+swagger-codegen generate -i swagger.yml -l html2 -o ../docs/swagger

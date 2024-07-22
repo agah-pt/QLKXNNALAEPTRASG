@@ -1,0 +1,24 @@
+defaults
+  mode http
+  timeout client 20s
+  timeout connect 10s
+  timeout server 20s 
+  timeout http-request 20s
+
+frontend main
+  bind 0.0.0.0:8080
+
+  stats enable
+  stats refresh 10s 
+  stats uri /stats
+
+  default_backend localstack
+
+backend localstack
+  http-request set-header Host <endpoint_id>.execute-api.localhost.localstack.cloud
+
+  http-response set-header Access-Control-Allow-Origin "*"
+  http-response set-header Access-Control-Allow-Methods "GET, POST, DELETE, PUT, PATCH, OPTIONS"
+  http-response set-header Access-Control-Allow-Headers "Content-Type, api_key, Authorization"
+
+  server localstack localstack:4566 ssl verify none
